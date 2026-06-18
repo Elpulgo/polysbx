@@ -3,6 +3,18 @@
 #   curl -fsSL https://raw.githubusercontent.com/elpulgo/polysbx/main/install.sh | bash
 set -euo pipefail
 
+# polysbx runs Claude Code inside a Linux container, so it needs a macOS or Linux
+# host. Refuse native Windows (Git Bash/MSYS/Cygwin) before cloning or running
+# anything. WSL2 reports as Linux and is supported — run polysbx from there.
+case "$(uname -s)" in
+    Darwin|Linux) ;;
+    MINGW*|MSYS*|CYGWIN*)
+        echo "❌ polysbx does not support Windows — it runs Claude Code in a Linux container and needs a macOS or Linux host." >&2
+        echo "   On Windows, install WSL2 and run this installer from inside the WSL (Linux) shell:" >&2
+        echo "     https://learn.microsoft.com/windows/wsl/install" >&2
+        exit 1 ;;
+esac
+
 REPO_URL="${POLYSBX_REPO:-https://github.com/elpulgo/polysbx.git}"
 DEST="${POLYSBX_DEST:-${XDG_DATA_HOME:-$HOME/.local/share}/polysbx}"
 

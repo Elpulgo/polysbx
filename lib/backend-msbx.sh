@@ -39,9 +39,15 @@ _raise_nofile() {
 backend_build() {
     check_docker || die "docker prerequisite not met (needed to build the image)."
     check_backend_runtime msbx || die "msbx runtime prerequisite not met."
-    local uid gid
-    uid="$(effective_uid)"; gid="$(effective_gid)"
-    info "Building $IMAGE_TAG  (uid=$uid gid=$gid; modules: $(selected_modules | tr '\n' ' '))"
+    # microsandbox's virtio-fs presents bind-mounted host files to the guest as a
+    # FIXED uid 1000 (its default user), regardless of the host UID — unlike Docker
+    # Desktop, which transparently maps host<->container UIDs. So (like the sbx
+    # backend) build + run as 1000, NOT the host UID, or Claude can't write the
+    # rw-mounted project on macOS. Files written flow back to the host owned by the
+    # invoking user (virtiofsd does host writes as its own process). SPEC §11.
+    local uid=1000 gid=1000
+    info "Building $IMAGE_TAG  (agent uid=$uid gid=$gid; modules: $(selected_modules | tr
+'\n' ' '))"
     (   ctx="$(mktemp -d)"
         trap 'rm -rf "$ctx"' EXIT
         assemble_dockerfile "$POLYSBX_ROOT/image/Dockerfile.base.tmpl" "$ctx/Dockerfile"
@@ -68,6 +74,7 @@ backend_setup_auth() {
     info "One-time Claude login — run /login, finish in the browser, then /exit."
     # Mount only the shared home; egress limited to the OAuth exchange. No project.
     msb run "$IMAGE_TAG" \
+        -u 1000:1000 \
         -m 2G -c 2 \
         -v "$MSBX_HOME:/home/claude/.claude" \
         --net-default deny \
@@ -149,6 +156,7 @@ backend_run() {
     # ${a[@]+"${a[@]}"} idiom expands to nothing safely on every bash.
     exec msb run "$IMAGE_TAG" \
         -m "$mem" -c "$CPUS" \
+        -u 1000:1000 \
         "${mounts[@]}" \
         ${net[@]+"${net[@]}"} \
         -w "$project" \

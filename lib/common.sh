@@ -15,8 +15,20 @@ err()  { printf '❌ %s\n'  "$*" >&2; }
 die()  { err "$*"; exit 1; }
 
 # ── Platform detection ──────────────────────────────────────────────────────
-detect_os()   { case "$(uname -s)" in Darwin) echo macos;; Linux) echo linux;; *) echo unknown;; esac; }
+detect_os()   { case "$(uname -s)" in Darwin) echo macos;; Linux) echo linux;; MINGW*|MSYS*|CYGWIN*) echo windows;; *) echo unknown;; esac; }
 detect_arch() { case "$(uname -m)" in x86_64|amd64) echo amd64;; arm64|aarch64) echo arm64;; *) echo unknown;; esac; }
+
+# polysbx runs Claude Code inside a Linux container, so it needs a macOS or Linux
+# host. Native Windows (Git Bash/MSYS/Cygwin) can't run the backends — bail with a
+# clear message before anything else happens. WSL2 reports as Linux and is fine.
+require_supported_os() {
+    if [[ "$(detect_os)" == windows ]]; then
+        err "polysbx does not support Windows — it runs Claude Code in a Linux container and needs a macOS or Linux host."
+        err "   On Windows, install WSL2 and run polysbx from inside the WSL (Linux) shell:"
+        err "     https://learn.microsoft.com/windows/wsl/install"
+        exit 1
+    fi
+}
 
 # Effective UID/GID to bake into / run the image as. We never run as root inside
 # the container — if the host user is root, fall back to 1000.
