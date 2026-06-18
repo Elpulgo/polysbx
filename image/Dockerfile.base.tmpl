@@ -1,0 +1,42 @@
+# polysbx base image (docker + msbx backends). Language/integration modules are
+# injected at the marker below by lib/image.sh; the sbx backend uses a separate
+# template (Phase 3). Built locally, once, by `psb build`.
+FROM debian:bookworm-slim
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Host UID/GID baked at build time so bind-mounted files line up on Linux (and
+# harmlessly match the macOS file-sharing remap). Avoids runtime chown hacks.
+ARG HOST_UID=1000
+ARG HOST_GID=1000
+
+# ── Base system deps + Node (Claude Code requires Node) ─────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        wget curl ca-certificates apt-transport-https gnupg lsb-release \
+        git ssh tzdata \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── Non-root user matching the host UID/GID ─────────────────────────────────
+# Reuse an existing group/uid if the numeric id is already taken in the base
+# (e.g. macOS gid 20). The 'claude' name is what USER below expects.
+RUN if ! getent group "$HOST_GID" >/dev/null; then groupadd -g "$HOST_GID" claude; fi \
+    && if ! getent passwd "$HOST_UID" >/dev/null; then \
+         useradd -m -u "$HOST_UID" -g "$HOST_GID" -s /bin/bash claude; \
+       fi \
+    && install -d -o "$HOST_UID" -g "$HOST_GID" /home/claude/.claude /home/claude/.ssh \
+    && chown -R "$HOST_UID:$HOST_GID" /home/claude
+
+# >>> POLYSBX_MODULES <<<
+
+# ── Claude Code (installed as the non-root user) ────────────────────────────
+USER ${HOST_UID}:${HOST_GID}
+ENV HOME=/home/claude
+RUN curl -fsSL https://claude.ai/install.sh | bash
+ENV PATH="/home/claude/.local/bin:$PATH"
+
+# Claude expects ~/.claude.json; symlink into the persisted ~/.claude home.
+RUN ln -sf /home/claude/.claude/claude.json /home/claude/.claude.json
+
+WORKDIR /workspace
+ENTRYPOINT ["claude"]

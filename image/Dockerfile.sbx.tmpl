@@ -1,0 +1,34 @@
+# polysbx sbx base image. Unlike the docker/msbx base (Debian + our own Claude
+# install), the sbx backend layers onto Docker's official Claude-Code sandbox
+# template so the built-in `claude` agent (auth proxy + entrypoint, supplied by
+# the kit's `extends: claude`) keeps working. Language/integration modules are
+# injected at the marker below by lib/image.sh — the SAME module fragments the
+# Debian base uses (SPEC §7). Built locally by `psb build`, then loaded with
+# `docker image save | sbx template load`.
+FROM docker/sandbox-templates:claude-code
+
+# Host UID/GID kept as build args for parity with the Debian base and so the
+# module fragments that chown into /home/claude resolve (the agent user is uid
+# 1000 on this base). Defaults match the base image's `agent` user.
+ARG HOST_UID=1000
+ARG HOST_GID=1000
+
+# ── Common build deps the module fragments assume (curl/wget/gnupg/apt-https) ─
+# Modules run as root and fetch toolchains over HTTPS; the base image is slim.
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates curl wget gnupg apt-transport-https lsb-release \
+    && rm -rf /var/lib/apt/lists/*
+
+# The Debian-base module fragments key some toolchain paths off /home/claude
+# (Go's GOPATH, Rust's runtime CARGO_HOME). The agent's real home here is
+# /home/agent, so pre-create a writable /home/claude owned by the agent uid;
+# that keeps the shared fragments working unmodified on this base too.
+# Use mkdir+chown, not `install -o`: this base's install won't resolve a bare
+# numeric owner ("invalid user"), whereas chown takes numeric ids directly.
+RUN mkdir -p /home/claude && chown "$HOST_UID:$HOST_GID" /home/claude
+
+# >>> POLYSBX_MODULES <<<
+
+# Back to the unprivileged agent user the built-in claude agent expects.
+USER agent
