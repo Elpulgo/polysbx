@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# polysbx — run Claude Code inside a sandbox (docker | sbx | msbx).
+# This is the dispatcher; subcommands live in ../lib. See SPEC.md.
+set -euo pipefail
+
+POLYSBX_BIN="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+POLYSBX_ROOT="$(cd "$POLYSBX_BIN/.." && pwd)"
+POLYSBX_LIB="$POLYSBX_ROOT/lib"
+export POLYSBX_ROOT POLYSBX_LIB
+
+# shellcheck source=../lib/common.sh
+source "$POLYSBX_LIB/common.sh"
+
+# Refuse native Windows up front — covers every subcommand (init, build, run, …).
+require_supported_os
+
+usage() {
+    cat >&2 <<'EOF'
+polysbx — sandboxed Claude Code
+
+Usage:
+  psb [run] [claude args...]   Launch Claude in the configured sandbox (default)
+  psb init                     Interactive onboarding (writes config, builds image)
+  psb build                    (Re)build the toolchain image
+  psb setup-auth               One-time Claude login (subscription mode)
+  psb doctor                   Verify the install
+  psb clean [--all]            Reclaim images/volumes/sandboxes (--all: sbx running too)
+  psb update                   Update polysbx from its repo (re-run 'psb build' after)
+  psb help                     This message
+
+Config: $HOME/.config/polysbx/{config,secrets.env}
+EOF
+}
+
+# Source the driver for the configured backend and assert it exists.
+load_backend() {
+    local f="$POLYSBX_LIB/backend-$BACKEND.sh"
+    [[ -f "$f" ]] || die "backend '$BACKEND' is not available (docker, msbx, and sbx are all wired)."
+    # shellcheck disable=SC1090
+    source "$f"
+}
+
+KNOWN="init build run setup-auth doctor clean update help"
+cmd="${1:-run}"
+# 'shift || true': bare `psb` has no positional params, and `shift` then returns
+# non-zero, which would abort under `set -e`. Default cmd=run, nothing to shift.
+if [[ " $KNOWN " == *" $cmd "* ]]; then shift || true; else cmd=run; fi
+
+case "$cmd" in
+    help)        usage ;;
+    init)        # shellcheck source=../lib/onboard.sh
+                 source "$POLYSBX_LIB/onboard.sh"; polysbx_init "$@" ;;
+    build)       load_config; load_backend; backend_build ;;
+    setup-auth)  load_config; load_secrets; load_backend; backend_setup_auth ;;
+    run)         load_config; load_secrets; load_backend; backend_run "$@" ;;
+    doctor)      load_config; load_secrets; load_backend; backend_doctor ;;
+    clean)       load_config; load_backend; backend_clean "$@" ;;
+    update)      polysbx_update ;;
+    *)           usage; exit 1 ;;
+esac
