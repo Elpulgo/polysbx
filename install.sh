@@ -44,5 +44,5 @@ fi
 
 # Self-heal the exec bit so future invocations and the psb shim work regardless.
 chmod +x "$root/bin/claude-harness" 2>/dev/null || true
-# Invoke via bash so a missing exec bit can't block us.
-exec bash "$root/bin/claude-harness" init "$@"
+
+echo "▶ Launch polysbx installer with $root/bin/claude-harness init" >&2
