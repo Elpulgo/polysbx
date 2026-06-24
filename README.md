@@ -6,6 +6,10 @@ backend (Docker, [Docker Sandboxes](https://docs.docker.com/ai/sandboxes/), or
 token), and which language toolchains go in the image — polysbx onboards you and
 gives you a `psb` command that works in any repo.
 
+## Supported platforms
+- Linux
+- MacOS
+
 ## Install
 
 ```bash
@@ -17,11 +21,11 @@ curl -fsSL https://raw.githubusercontent.com/elpulgo/polysbx/main/install.sh | b
 `install.sh` runs `psb init`, which:
 
 1. detects your OS/arch and checks prerequisites (**detect-and-instruct only — it
-   never installs anything for you**);
+   never installs anything for you**)
 2. asks for backend, auth mode, languages, your Claude config dir, and optional
-   Azure DevOps / GitHub integrations;
-3. builds the toolchain image with just the modules you chose;
-4. runs a one-time Claude login (subscription mode);
+   Azure DevOps / GitHub integrations
+3. builds the toolchain image with just the modules you chose; .NET / GO / PYTHON / RUST. (Node is always installed in the sandbox)
+4. runs a one-time Claude login (subscription mode)
 5. drops a `psb` shim on `~/.local/bin`.
 
 ## Use
