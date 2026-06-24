@@ -70,6 +70,11 @@ backend_setup_auth() {
     _image_loaded || backend_build
     _raise_nofile
     mkdir -p "$MSBX_HOME"
+    # virtio-fs maps the invoking host user → guest uid 1000, so the WHOLE home
+    # must be owned by us — not just newly-created files. Normalize ownership to
+    # self-heal after a run-uid change; otherwise subdirs created by an older uid
+    # (e.g. session-env) map to a non-1000 guest uid and reject writes.
+    chown -R "$(id -u):$(id -g)" "$MSBX_HOME" 2>/dev/null || true
     sync_config "$MSBX_HOME" >/dev/null || true   # give the login session normal config
     info "One-time Claude login — run /login, finish in the browser, then /exit."
     # Mount only the shared home; egress limited to the OAuth exchange. No project.
@@ -98,6 +103,10 @@ backend_run() {
     langs=" $LANGUAGES "
 
     mkdir -p "$MSBX_HOME"
+    # Keep the shared home owned by the invoking user so virtio-fs maps all of it
+    # to guest uid 1000 (see backend_setup_auth). Self-heals orphaned subdirs left
+    # by an older run uid.
+    chown -R "$(id -u):$(id -g)" "$MSBX_HOME" 2>/dev/null || true
     sync_config "$MSBX_HOME"
 
     # First-run guard: a shared home with no credential means setup-auth hasn't run.
