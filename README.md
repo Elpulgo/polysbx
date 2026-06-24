@@ -18,7 +18,9 @@ curl -fsSL https://raw.githubusercontent.com/elpulgo/polysbx/main/install.sh | b
 ./install.sh
 ```
 
-`install.sh` runs `psb init`, which:
+`install.sh` installs the needed shell scripts. 
+
+A command line is shown which:
 
 1. detects your OS/arch and checks prerequisites (**detect-and-instruct only — it
    never installs anything for you**)
