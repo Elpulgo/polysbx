@@ -6,12 +6,6 @@ backend (Docker, [Docker Sandboxes](https://docs.docker.com/ai/sandboxes/), or
 token), and which language toolchains go in the image — polysbx onboards you and
 gives you a `psb` command that works in any repo.
 
-> **Status:** Phase 3 — all three backends (**docker**, **msbx**, **sbx**) are
-> wired end-to-end, with multiselect onboarding, all four language modules, and a
-> verifying `doctor`. `msbx` (microsandbox) is beta (needs Apple Silicon or
-> Linux+KVM); `sbx` (Docker Sandboxes) is beta (host-keychain auth via `sbx login`,
-> no OAuth-token mode). See [`SPEC.md`](./SPEC.md).
-
 ## Install
 
 ```bash
